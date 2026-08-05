@@ -5,8 +5,23 @@ Descarga incremental de las fuentes publicas a la capa `raw` de MinIO.
 ## Fuentes
 
 **TLC** — viajes de taxi y VHS de Nueva York. Se publica en parquet, un archivo
-por mes y por tipo de servicio (`yellow`, `green`, `fhv`, `fhvhv`). El historico
-es estable; solo cambia el mes mas reciente.
+por mes y por tipo de servicio (`yellow`, `green`, `fhv`, `fhvhv`).
+
+Comprobado con peticiones `HEAD` reales el 2026-08-04:
+
+```
+https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_YYYY-MM.parquet
+
+mes existente     200, con Content-Length y ETag
+mes inexistente   403  <- no 404
+yellow 2024-01    47.6 MB
+yellow 2009-01    448 MB
+```
+
+Dos consecuencias que no son obvias: un backfill que pase del ultimo mes
+publicado recibe **403**, no 404, y tratarlo como error de red produce
+reintentos infinitos. Y el rango de tamanos es de casi 10x, asi que la descarga
+no puede asumir que el archivo cabe en memoria.
 
 **GH Archive** — eventos publicos de GitHub, un archivo `.json.gz` por hora.
 Volumen alto y crece sin parar: la ventana a descargar es una decision, no un
