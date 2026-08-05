@@ -44,9 +44,19 @@ docker exec "${PROJECT}-spark-1" /opt/spark/bin/spark-sql "${CATALOG_CONF[@]}" -
 }
 
 # Sin PURGE: con Nessie el catalogo rechaza borrar los archivos, porque otras
-# ramas pueden estar referenciandolos. Quitar los objetos de MinIO es trabajo
-# del GC de Nessie, no del DROP. Aqui solo se suelta la referencia.
+# ramas pueden estar referenciandolos. Aqui solo se suelta la referencia.
 docker exec "${PROJECT}-spark-1" /opt/spark/bin/spark-sql "${CATALOG_CONF[@]}" -e "
   DROP TABLE IF EXISTS acervo.smoke.t;
   DROP NAMESPACE IF EXISTS acervo.smoke;
-" >/dev/null 2>&1 && echo "OK  limpieza" || echo "AVISO  la limpieza fallo, revisa acervo.smoke a mano"
+" >/dev/null 2>&1 && echo "OK  referencia soltada del catalogo" \
+  || echo "AVISO  el DROP fallo, revisa acervo.smoke a mano" >&2
+
+# El DROP deja los objetos en MinIO: borrarlos es trabajo del GC de Nessie, que
+# aqui no corre. Sin este paso cada corrida acumula parquet huerfanos en
+# warehouse/, que nadie referencia y nadie limpia.
+docker run --rm --network "${PROJECT}_default" \
+  -e MC_HOST_local="http://${MINIO_ROOT_USER:-acervo}:${MINIO_ROOT_PASSWORD:-acervo123}@minio:9000" \
+  minio/mc:RELEASE.2025-04-16T18-13-26Z \
+  rm --recursive --force local/warehouse/smoke >/dev/null 2>&1
+
+echo "OK  objetos huerfanos eliminados"
