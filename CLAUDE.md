@@ -34,10 +34,12 @@ entorno unico en la raiz.
 ## Comandos
 
 ```bash
+cp .env.example .env          # una sola vez; el mismo .env lo leen Compose y Python
 devherd up                    # levanta el stack (NUNCA docker compose directo)
 devherd down
 ./infra/smoke-test.sh         # cableado Iceberg <-> Nessie <-> MinIO
 ./infra/connect-test.sh       # que la config del servidor Spark Connect sirve
+./infra/raw-read-test.sh      # que Spark lee con s3a:// el parquet de raw/
 
 cd ingest && uv run pytest              # incluye pruebas contra MinIO real
 cd ingest && uv run ruff check .
