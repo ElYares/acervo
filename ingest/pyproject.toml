@@ -19,6 +19,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "boto3-stubs~=1.43.64",
     "pytest>=8",
     "ruff>=0.9",
 ]
