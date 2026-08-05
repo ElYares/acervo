@@ -58,13 +58,24 @@ devherd down     # baja el proyecto
 
 ## Verificar que funciona
 
+Dos pruebas, y **prueban cosas distintas**:
+
 ```bash
-./infra/smoke-test.sh
+./infra/smoke-test.sh      # el cableado Iceberg <-> Nessie <-> MinIO
+./infra/connect-test.sh    # que la config del servidor Spark Connect sirve
 ```
 
-Escribe una tabla Iceberg atravesando Spark, Nessie y MinIO, la lee y la borra.
-Es la unica prueba que confirma que las tres piezas estan cableadas entre si;
-que los contenedores esten `Up` no demuestra nada.
+`smoke-test.sh` corre `spark-sql` dentro del contenedor, que abre su propia
+sesion `local[*]` **con su propia configuracion de catalogo**. Prueba que las
+tres piezas se entienden, pero no toca los `--conf` del servidor Connect.
+
+`connect-test.sh` levanta un cliente pyspark externo contra `sc://localhost:15002`
+y **no le pasa ninguna configuracion de catalogo**: si `SHOW NAMESPACES IN
+acervo` responde, es porque el servidor la tiene bien. Ese es el camino que van
+a usar dbt y Dagster.
+
+Que los contenedores esten `Up` no demuestra nada: Nessie estuvo `Up` con el
+catalogo roto, devolviendo 200 en `/api/v2/config`.
 
 ## Por que hay dos archivos compose
 
@@ -89,7 +100,7 @@ lakehouse no sale de la maquina.
 
 ## Estado
 
-Infraestructura levantada y verificada con `smoke-test.sh`. Los cinco servicios
+Infraestructura levantada y verificada por las dos pruebas. Los cinco servicios
 restantes son esqueletos con su README; todavia no hay datos.
 
 Spark habla con Nessie por su catalogo nativo (`NessieCatalog`), no por el
