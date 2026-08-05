@@ -42,6 +42,7 @@ compose` directo. devherd resuelve el compose desde `.devherd.yml`, aplica el
 proxy y publica el dominio local.
 
 ```bash
+cp .env.example .env                  # una sola vez, lo leen Compose y Python
 devherd park ~/develop/data-science   # una sola vez
 devherd up                            # desde la raiz del repo
 devherd proxy apply acervo            # publica acervo.localhost (pide sudo)
@@ -95,8 +96,10 @@ encuentra un compose o un `Dockerfile` **en la raiz**
 | Nessie | 19120 | Catalogo Iceberg + REST |
 | Spark | 15002 | Spark Connect |
 
-Credenciales por defecto en `infra/.env.example`. Son de desarrollo local: el
-lakehouse no sale de la maquina.
+Credenciales y demas configuracion en `.env.example`, en la raiz. Se copia a
+`.env` una vez (`cp .env.example .env`) y de ahi comen tanto Compose como los
+servicios de Python. Son valores de desarrollo local: el lakehouse no sale de
+la maquina, pero el codigo ya no los trae dentro.
 
 ## Estado
 

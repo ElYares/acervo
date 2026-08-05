@@ -37,7 +37,8 @@ docker compose -f infra/compose.yaml ps
 curl -fsS http://localhost:19120/api/v2/config    # Nessie responde
 ```
 
-Consola de MinIO: http://localhost:9001 (usuario y clave en `.env.example`).
+Consola de MinIO: http://localhost:9001 (usuario y clave en el `.env.example`
+de la raiz del repo).
 
 ## Por que no hay Dockerfiles
 
