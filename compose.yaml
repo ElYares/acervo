@@ -1,0 +1,13 @@
+name: acervo
+
+# Las definiciones reales viven en infra/compose.yaml. Este archivo existe en la
+# raiz por dos razones:
+#
+# 1. `docker compose up` funciona desde la raiz del repo, que es donde uno esta
+# 2. El detector de devherd solo reconoce un proyecto si encuentra un compose o
+#    un Dockerfile en la raiz (internal/detector/detector.go:205). Un
+#    `.devherd.yml` apuntando a un compose anidado resuelve bien con `up` y
+#    `plan`, pero `park` no registra el proyecto y entonces `proxy apply`,
+#    `open` y `logs <nombre>` no lo encuentran.
+include:
+  - infra/compose.yaml

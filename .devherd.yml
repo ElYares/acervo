@@ -1,0 +1,10 @@
+version: 1
+compose:
+  files:
+    - compose.yaml
+proxy:
+  # Temporal: hoy el unico servicio con UI es la consola de MinIO.
+  # Cuando acervo-api levante, esto pasa a service: acervo-api / port: 8080.
+  domain: acervo.localhost
+  service: minio
+  port: 9001

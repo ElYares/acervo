@@ -1,0 +1,35 @@
+# Secretos y entorno local
+.env
+infra/.env
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+
+# Dagster
+orchestrate/.dagster_home/
+orchestrate/tmp*/
+
+# Go
+acervo-api/bin/
+
+# Next.js
+acervo-web/node_modules/
+acervo-web/.next/
+acervo-web/out/
+
+# Datos crudos descargados: se rebajan a MinIO, no a git
+data/
+*.parquet
+
+# Generados por devherd, no son fuente
+docker-compose.devherd.yml
+.devherd.proxy.override.yml
