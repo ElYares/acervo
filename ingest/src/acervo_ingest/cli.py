@@ -5,6 +5,7 @@ from typing import Annotated
 import typer
 
 from acervo_ingest import tlc
+from acervo_ingest.config import ErrorConfiguracion, OrigenTLC
 from acervo_ingest.storage import ErrorAlmacenamiento, almacen_raw
 
 app = typer.Typer(
@@ -39,8 +40,17 @@ def comando_tlc(
     forzar: Annotated[bool, typer.Option("--forzar", help="Descarga aunque ya este")] = False,
 ) -> None:
     """Ingiere un mes de TLC a la capa raw."""
+    # La configuracion se resuelve entera antes de tocar la red: si falta una
+    # variable, el fallo no puede aparecer a media descarga.
     try:
-        informe = tlc.ingerir(almacen_raw(), servicio, mes, forzar=forzar)
+        almacen = almacen_raw()
+        origen = OrigenTLC.desde_entorno()
+    except ErrorConfiguracion as err:
+        typer.secho(f"configuracion: {err}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(3) from err
+
+    try:
+        informe = tlc.ingerir(almacen, origen, servicio, mes, forzar=forzar)
     except (tlc.MesInvalido, tlc.ServicioInvalido) as err:
         typer.secho(str(err), fg=typer.colors.RED, err=True)
         raise typer.Exit(2) from err

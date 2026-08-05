@@ -12,6 +12,7 @@ import uuid
 
 import pytest
 
+from acervo_ingest.config import ErrorConfiguracion
 from acervo_ingest.storage import ErrorAlmacenamiento, almacen_raw
 
 pytestmark = pytest.mark.integracion
@@ -19,7 +20,10 @@ pytestmark = pytest.mark.integracion
 
 @pytest.fixture
 def almacen():
-    a = almacen_raw()
+    try:
+        a = almacen_raw()
+    except ErrorConfiguracion as err:
+        pytest.skip(f"sin configuracion: {err}")
     try:
         a._s3.head_bucket(Bucket="raw")
     except Exception:

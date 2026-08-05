@@ -52,7 +52,7 @@ uv run ingest tlc yellow --mes 2024-01 --forzar
 ```
 
 Codigos de salida: `0` exito (incluye "ya presente" y "no publicado"), `1` fallo
-escribiendo el destino, `2` argumentos invalidos.
+escribiendo el destino, `2` argumentos invalidos, `3` configuracion incompleta.
 
 Un mes no publicado **no es un fallo**: en un backfill es la senal de que se
 llego al final, y salir con error haria reintentar para siempre.
@@ -84,11 +84,34 @@ por completo y nunca lo repararia.
 
 ## Configuracion
 
-| Variable | Default |
-|---|---|
-| `ACERVO_S3_ENDPOINT` | `http://localhost:9000` |
-| `MINIO_ROOT_USER` | `acervo` |
-| `MINIO_ROOT_PASSWORD` | `acervo123` |
+Todo sale del `.env` unico de la raiz del repo. Se copia una vez:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Obligatoria | Default |
+|---|---|---|
+| `MINIO_ROOT_USER` | si | — |
+| `MINIO_ROOT_PASSWORD` | si | — |
+| `ACERVO_TLC_BASE_URL` | si | — |
+| `ACERVO_S3_ENDPOINT` | no | `http://localhost:9000` |
+| `ACERVO_S3_REGION` | no | `us-east-1` |
+| `ACERVO_S3_BUCKET_RAW` | no | `raw` |
+| `ACERVO_HTTP_TIMEOUT` | no | `30` |
+
+Las obligatorias **no tienen default a proposito**. Si falta una, el comando
+sale con codigo `3` nombrandola, sin haber hecho ninguna peticion. Un default
+de conveniencia es como se termina corriendo contra el almacen equivocado sin
+enterarse.
+
+`ACERVO_TLC_BASE_URL` no es un secreto y aun asi es obligatoria: ninguna URL
+del origen vive en `src/`, y el valor de desarrollo esta en `.env.example`.
+
+Lo que **no** es configuracion y por eso sigue en el codigo: que servicios
+publica TLC, el formato del mes, que un 403 significa "no publicado" y la clave
+de metadata donde va la marca de agua. Son reglas del dominio; en un `.env`
+quedarian sin tipos y sin pruebas.
 
 ## Desarrollo
 

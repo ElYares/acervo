@@ -13,9 +13,11 @@ from typing import IO
 
 import httpx
 
+from acervo_ingest.config import OrigenTLC
 from acervo_ingest.storage import AlmacenRaw
 
-BASE = "https://d37ci6vzurychx.cloudfront.net/trip-data"
+# Reglas del dominio, no configuracion: cambian cuando cambia TLC, no cuando
+# cambia la maquina. La URL del origen si es configuracion y vive en el entorno.
 SERVICIOS = ("yellow", "green", "fhv", "fhvhv")
 _MES = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
@@ -55,9 +57,11 @@ def validar(servicio: str, mes: str) -> None:
         raise MesInvalido(f"mes '{mes}' no tiene formato YYYY-MM")
 
 
-def url_mes(servicio: str, mes: str) -> str:
+def url_mes(base: str, servicio: str, mes: str) -> str:
+    """La URL del parquet de un mes. La base entra por parametro para que esta
+    funcion siga siendo pura y probable sin entorno."""
     validar(servicio, mes)
-    return f"{BASE}/{servicio}_tripdata_{mes}.parquet"
+    return f"{base}/{servicio}_tripdata_{mes}.parquet"
 
 
 def key_destino(servicio: str, mes: str) -> str:
@@ -90,11 +94,17 @@ class _LectorStream:
         return salida
 
 
-def ingerir(almacen: AlmacenRaw, servicio: str, mes: str, forzar: bool = False) -> Informe:
-    url = url_mes(servicio, mes)
+def ingerir(
+    almacen: AlmacenRaw,
+    origen: OrigenTLC,
+    servicio: str,
+    mes: str,
+    forzar: bool = False,
+) -> Informe:
+    url = url_mes(origen.base_url, servicio, mes)
     key = key_destino(servicio, mes)
 
-    with httpx.Client(follow_redirects=True, timeout=30.0) as cliente:
+    with httpx.Client(follow_redirects=True, timeout=origen.timeout) as cliente:
         cabeza = cliente.head(url)
 
         if cabeza.status_code in HTTP_NO_PUBLICADO:
