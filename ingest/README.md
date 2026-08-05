@@ -42,11 +42,69 @@ Casos que hay que resolver y que no son obvios:
 - Bajar un mes de `fhvhv` son varios GB. El streaming a MinIO no puede pasar por
   memoria
 
+## Uso
+
+```bash
+uv sync
+uv run ingest tlc yellow --mes 2024-01     # descarga a raw/tlc/yellow/2024-01.parquet
+uv run ingest tlc yellow --mes 2024-01     # segunda vez: no descarga nada
+uv run ingest tlc yellow --mes 2024-01 --forzar
+```
+
+Codigos de salida: `0` exito (incluye "ya presente" y "no publicado"), `1` fallo
+escribiendo el destino, `2` argumentos invalidos.
+
+Un mes no publicado **no es un fallo**: en un backfill es la senal de que se
+llego al final, y salir con error haria reintentar para siempre.
+
+## Como decide si descargar
+
+La marca de agua es el **ETag del origen**, guardado como metadata de usuario
+del objeto en MinIO.
+
+| Situacion | Que hace |
+|---|---|
+| El objeto no existe | Descarga |
+| Existe y el ETag coincide | No descarga nada |
+| Existe y el ETag difiere | Re-descarga y lo reporta como **revision** |
+| El origen responde 403 | Reporta "no publicado" y termina con exito |
+
+No se compara contra el ETag que calcula MinIO: MinIO calcula el suyo sobre lo
+que recibio, y en subidas multiparte no coincide con el del origen. El ETag de
+`yellow 2024-01` termina en `-3` justamente por eso.
+
+## Como evita objetos parciales
+
+La subida va a `<key>.parcial` y solo se promueve a la clave final si el tamano
+subido coincide con el `Content-Length` del origen. Si el proceso muere a la
+mitad, lo huerfano es la temporal.
+
+Sin esto, la deteccion de "ya descargado" mentiria: veria el objeto, lo daria
+por completo y nunca lo repararia.
+
+## Configuracion
+
+| Variable | Default |
+|---|---|
+| `ACERVO_S3_ENDPOINT` | `http://localhost:9000` |
+| `MINIO_ROOT_USER` | `acervo` |
+| `MINIO_ROOT_PASSWORD` | `acervo123` |
+
+## Desarrollo
+
+```bash
+uv run pytest                        # todo
+uv run pytest -m "not integracion"   # sin MinIO
+uv run ruff check .
+```
+
+Las pruebas de integracion se saltan solas si MinIO no responde.
+
 ## Estado
 
-Esqueleto. Nada implementado.
+TLC implementado para un mes y un servicio — CU-001. GH Archive sin empezar.
 
 ## Siguiente
 
-Un solo mes de TLC `yellow`, aterrizado en `raw/`, con la deteccion de "ya esta
-descargado" funcionando. Es el caso mas simple de la fuente mas estable.
+Backfill de un rango de meses, apoyado en que un mes ya descargado sale en
+0.6 s contra los 4.9 s de una descarga.

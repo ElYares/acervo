@@ -1,0 +1,38 @@
+[project]
+name = "acervo-ingest"
+version = "0.1.0"
+description = "Descarga incremental de fuentes publicas a la capa raw del lakehouse"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.35",
+    "httpx>=0.28",
+    "typer>=0.15",
+]
+
+[project.scripts]
+ingest = "acervo_ingest.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "integracion: requiere el stack levantado y salida a internet",
+]
