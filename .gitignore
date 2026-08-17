@@ -33,3 +33,6 @@ data/
 # Generados por devherd, no son fuente
 docker-compose.devherd.yml
 .devherd.proxy.override.yml
+
+# Config del IDE: es de quien lo usa, no del proyecto
+.idea/
