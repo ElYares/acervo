@@ -1,9 +1,12 @@
 # transform
 
-Materializa las capas modeladas del lakehouse. Hoy: **silver de TLC con Spark**.
+Materializa las capas modeladas del lakehouse: **silver de TLC con Spark** y
+**gold con dbt**, que viven aqui los dos porque son el mismo servicio con dos
+herramientas. La frontera esta en la Decision 003 del vault: Spark materializa
+silver, dbt entra desde gold.
 
-`gold` y dbt son la fase 3 y todavia no existen. La frontera esta en la
-Decision 003 del vault: Spark materializa silver, dbt entra desde gold.
+De gold hoy existe **el puente, no los modelos**: HU-004 dejo probado que dbt
+escribe Iceberg contra este stack. El primer mart real es CU-003.
 
 ## Capas
 
@@ -15,7 +18,8 @@ fila de silver es una fila del origen, tipada y **marcada**. No agrega, no une y
 no descarta.
 
 **gold** — agregados listos para consumo, con dbt. Es lo unico que va a leer
-`acervo-api`. Todavia vacio.
+`acervo-api`: silver tiene un renglon por viaje y ningun proceso Go va a
+escanear millones de filas por peticion HTTP. Todavia sin modelos reales.
 
 ## Uso
 
@@ -33,6 +37,56 @@ acervo.silver.tlc_yellow  mes=2024-01  leidas=2,964,624  marcadas=124,198 (4.19%
 Codigos de salida: `2` mes o servicio invalido (no abre Spark), `1` el mes no
 esta en `raw/`, el esquema no cumple el contrato, o la particion no quedo con
 tantas filas que el origen.
+
+Y gold, con dbt:
+
+```bash
+uv run dbt debug                        # el puente responde
+uv run dbt run --select puente_dbt      # el canario de HU-004
+```
+
+`profiles.yml` esta en este directorio y dbt lo encuentra solo: **no hace falta
+`DBT_PROFILES_DIR`**.
+
+## Como habla dbt con Spark
+
+Por Spark Connect, sin thrift, sin tocar el `compose.yaml`. Y por un camino que
+conviene entender antes de tocarlo.
+
+**`dbt-spark` no soporta Spark Connect.** Su `SparkConnectionMethod` solo declara
+`thrift`, `http`, `odbc` y `session`. Funciona igual porque el metodo `session`
+arma la sesion asi, en `session.py:116-121`:
+
+```python
+builder = SparkSession.builder.enableHiveSupport()
+for parameter, value in self.server_side_parameters.items():
+    builder = builder.config(parameter, value)
+spark_session = builder.getOrCreate()
+```
+
+Al pasar `spark.remote` como `server_side_parameter`, el builder de pyspark 3.5
+devuelve una sesion **remota**. Es un efecto colateral de como esta escrito el
+adaptador, no una capacidad soportada, y de ahi salen tres consecuencias:
+
+- **La version de `dbt-spark` va clavada con `==`.** Una version futura puede
+  reordenar ese builder y romperlo sin anunciar nada, porque nunca fue una
+  promesa
+- **`tests/test_dbt_integracion.py` es lo que hace ruidoso ese riesgo.** Sin esa
+  prueba, el dia que se levante el pin dbt levantaria una Spark local en el
+  proceso —sin catalogo, sin credenciales— en vez de fallar
+- **`enableHiveSupport()` tira un `UserWarning` en cada sentencia**
+  (`Cannot modify the value of a static config: spark.sql.catalogImplementation`).
+  Es inofensivo: el servidor ya tiene su catalogo estatico
+
+Dos detalles mas del proyecto dbt:
+
+- **`+schema: X` significa literalmente X.** Por defecto dbt concatena y un
+  `+schema: puente` sobre el target `gold` daria `gold_puente`. Aqui `silver` y
+  `gold` son namespaces reales del catalogo, no prefijos de aislamiento entre
+  desarrolladores. Lo corrige `macros/generate_schema_name.sql`
+- **`file_format: iceberg` esta puesto a proposito.** El default de dbt-spark
+  deja una tabla Hive que Nessie no versiona y que no comparte formato con
+  silver
 
 ## Por que marca y no filtra
 
@@ -110,6 +164,13 @@ saltando el servidor.
 | `ACERVO_SPARK_REMOTE` | `sc://localhost:15002` | Servidor Spark Connect |
 | `ACERVO_CATALOGO` | `acervo` | Catalogo Iceberg en Nessie |
 | `ACERVO_S3_BUCKET_RAW` | `raw` | Bucket de la capa raw |
+| `ACERVO_DBT_SCHEMA` | `gold` | Namespace destino de los modelos dbt |
+
+**Trampa del `.env` con dbt.** El codigo Python de este servicio carga el `.env`
+de la raiz con `python-dotenv`, pero `env_var` de dbt lee el entorno **del
+proceso** y no sabe nada de ese archivo. Los defaults de `profiles.yml` son los
+de desarrollo local, asi que en local no se nota; para apuntar a otro servidor
+hay que **exportar** la variable, no escribirla en `.env`.
 
 ## Desarrollo
 
@@ -130,11 +191,23 @@ del servidor. Ver `infra/README.md`.
 
 ## Estado
 
-CU-002 implementado para `yellow`. Las pruebas de integracion materializan el
-mes de verdad y tardan alrededor de un minuto.
+CU-002 implementado para `yellow` y HU-004 cerrada: el puente de dbt esta
+probado. Las pruebas de integracion materializan el mes de verdad y tardan
+alrededor de un minuto.
+
+`models/puente/puente_dbt.sql` es un canario desechable: no modela nada, existe
+para que las pruebas puedan afirmar que el puente aguanta. Se borra cuando
+CU-003 traiga un modelo que alguien consulte.
 
 ## Siguiente
 
+- CU-003: el primer mart de gold, viajes por zona y hora
 - El contrato de `green`, `fhv` y `fhvhv`
 - Backfill de varios meses en una corrida
-- `gold` con dbt
+
+## Deuda conocida
+
+Las tablas nacen con `gc.enabled=false`, asi que dropear una **no** borra sus
+archivos de MinIO y cada `dbt run --full-refresh` deja otra copia. Es el mismo
+GC de Nessie que no corre y que ya afecta a silver: `expire_snapshots` falla con
+`GC is disabled`, igual que `DROP TABLE PURGE`.

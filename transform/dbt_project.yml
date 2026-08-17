@@ -1,0 +1,38 @@
+# Proyecto dbt de acervo. Vive dentro de `transform/` porque es el mismo
+# servicio: Spark materializa silver y dbt modela gold, que es la frontera que
+# fijo la Decision 003 del vault. El `.gitignore` de la raiz ya reservaba
+# `transform/target/`, `transform/logs/` y `transform/dbt_packages/`.
+name: acervo
+version: "0.1.0"
+profile: acervo
+
+# Todas las rutas explicitas, no por defecto. `transform/` tambien es un paquete
+# de Python: sin esto, dbt reclama el `tests/` de pytest como suyo y falla al
+# parsear archivos .py que no son suyos.
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["dbt_tests"]
+analysis-paths: ["analyses"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+flags:
+  # dbt manda estadisticas de uso a un endpoint externo por defecto. Un proyecto
+  # de datos no llama a casa sin decirlo.
+  send_anonymous_usage_stats: false
+
+models:
+  acervo:
+    +materialized: table
+    # Iceberg y no parquet: el default de dbt-spark deja una tabla Hive que
+    # Nessie no versiona y que no comparte formato con silver.
+    +file_format: iceberg
+
+    puente:
+      # El canario de HU-004 no vive en gold. Su namespace es desechable y las
+      # pruebas lo borran; gold es para modelos que alguien va a consumir.
+      +schema: puente

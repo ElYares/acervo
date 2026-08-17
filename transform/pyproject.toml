@@ -10,6 +10,15 @@ readme = "README.md"
 # .python-version). Los scripts de infra ya usaban python:3.11-slim por esto.
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    # Clavada con `==`, no acotada con `>=`, y por una razon distinta a la de
+    # pyspark. `dbt-spark` **no soporta Spark Connect**: su enum de metodos solo
+    # tiene thrift, http, odbc y session. Esto funciona porque el metodo
+    # `session` pasa cada `server_side_parameter` por `builder.config(...)`
+    # antes de `getOrCreate()` (session.py:116-121), y ahi cuela `spark.remote`.
+    # Es un efecto colateral de como esta escrito el adaptador, no una promesa:
+    # una version futura puede reordenar ese builder sin anunciar nada. Ver
+    # HU-004 y tests/test_dbt_integracion.py.
+    "dbt-spark==1.11.0",
     # Clavada, no acotada: el cliente de Connect tiene que ser la version exacta
     # del servidor. Ver infra/README.md.
     "pyspark[connect]==3.5.6",
