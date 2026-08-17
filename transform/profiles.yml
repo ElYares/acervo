@@ -1,0 +1,34 @@
+# dbt busca `profiles.yml` en el directorio del proyecto antes que en `~/.dbt`,
+# asi que este archivo se encuentra solo y no hace falta `DBT_PROFILES_DIR`.
+#
+# **Aqui no hay credenciales, igual que en `config.py`.** dbt no toca MinIO: se
+# lo pide al servidor de Spark, que las tiene desde HU-002.
+#
+# **Ojo con el `.env`:** `env_var` lee el entorno del proceso, no el `.env` de la
+# raiz. `python-dotenv` lo carga para el codigo Python de este servicio, pero no
+# para dbt. Los defaults de abajo son los de desarrollo local; para apuntar a
+# otro sitio hay que **exportar** la variable, no escribirla en `.env`.
+acervo:
+  target: dev
+  outputs:
+    dev:
+      type: spark
+
+      # `session` y no `thrift`: el servidor solo habla Spark Connect y no hay
+      # thrift que exponer. dbt-spark no declara un metodo `connect`, pero el
+      # metodo `session` pasa cada `server_side_parameter` por
+      # `builder.config(...)` antes de `getOrCreate()` (session.py:116-121), y
+      # `spark.remote` hace que el builder de pyspark devuelva una sesion
+      # remota. Es un efecto colateral de como esta escrito el adaptador, no una
+      # capacidad soportada: por eso la version va clavada en pyproject.toml.
+      method: session
+
+      # Irrelevante con `session`, pero el adaptador lo exige. Solo sale en la
+      # salida de `dbt debug`.
+      host: NA
+
+      # El namespace por defecto. Los modelos de `puente/` lo sobreescriben.
+      schema: "{{ env_var('ACERVO_DBT_SCHEMA', 'gold') }}"
+
+      server_side_parameters:
+        spark.remote: "{{ env_var('ACERVO_SPARK_REMOTE', 'sc://localhost:15002') }}"
