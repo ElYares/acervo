@@ -37,7 +37,34 @@ docker compose -f infra/compose.yaml ps
 curl -fsS http://localhost:19120/api/v2/config    # Nessie responde
 ```
 
-Consola de MinIO: http://localhost:9001 (usuario y clave en `.env.example`).
+Consola de MinIO: http://localhost:9001 (usuario y clave en el `.env.example`
+de la raiz del repo).
+
+## Dos caminos a MinIO, y se configuran aparte
+
+Spark llega al mismo MinIO por dos rutas que no comparten nada:
+
+| Cuando | Quien resuelve | Se configura con |
+|---|---|---|
+| `spark.sql("SELECT * FROM acervo.x.y")` | `S3FileIO` de Iceberg | `spark.sql.catalog.acervo.s3.*` |
+| `spark.read.parquet("s3a://raw/...")` | `S3AFileSystem` de Hadoop | `spark.hadoop.fs.s3a.*` |
+
+Tener el catalogo funcionando **no implica** poder leer una ruta suelta. La
+primera vez que se intento, con el catalogo perfecto, la lectura murio con
+`ClassNotFoundException: org.apache.hadoop.fs.s3a.S3AFileSystem`: ni siquiera
+era configuracion, era que faltaba el jar.
+
+Dos consecuencias al tocar el compose:
+
+- **`hadoop-aws` tiene que coincidir con el Hadoop de la imagen**, que es
+  3.3.4 (`ls /opt/spark/jars | grep hadoop-client`). Arrastra
+  `aws-java-sdk-bundle` v1, que no es el SDK v2 que trae `iceberg-aws-bundle`.
+  Cada camino usa el suyo y ambos jars conviven
+- El proveedor de credenciales de S3A se declara explicito
+  (`SimpleAWSCredentialsProvider`). Con la cadena por defecto, S3A prueba
+  proveedores en orden y acaba intentando credenciales de instancia IAM que
+  aqui no existen, lo que convierte un fallo de configuracion en un timeout
+  que no dice nada
 
 ## Por que no hay Dockerfiles
 

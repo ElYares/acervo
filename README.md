@@ -42,6 +42,7 @@ compose` directo. devherd resuelve el compose desde `.devherd.yml`, aplica el
 proxy y publica el dominio local.
 
 ```bash
+cp .env.example .env                  # una sola vez, lo leen Compose y Python
 devherd park ~/develop/data-science   # una sola vez
 devherd up                            # desde la raiz del repo
 devherd proxy apply acervo            # publica acervo.localhost (pide sudo)
@@ -58,11 +59,12 @@ devherd down     # baja el proyecto
 
 ## Verificar que funciona
 
-Dos pruebas, y **prueban cosas distintas**:
+Tres pruebas, y **prueban cosas distintas**:
 
 ```bash
 ./infra/smoke-test.sh      # el cableado Iceberg <-> Nessie <-> MinIO
 ./infra/connect-test.sh    # que la config del servidor Spark Connect sirve
+./infra/raw-read-test.sh   # que Spark lee el parquet que dejo ingest en raw/
 ```
 
 `smoke-test.sh` corre `spark-sql` dentro del contenedor, que abre su propia
@@ -73,6 +75,11 @@ tres piezas se entienden, pero no toca los `--conf` del servidor Connect.
 y **no le pasa ninguna configuracion de catalogo**: si `SHOW NAMESPACES IN
 acervo` responde, es porque el servidor la tiene bien. Ese es el camino que van
 a usar dbt y Dagster.
+
+`raw-read-test.sh` cubre el tramo que los otros dos no tocan: leer una ruta
+suelta con `s3a://`. Eso **no pasa por el catalogo**, sino por el FileSystem de
+Hadoop, que se configura aparte. Son dos caminos distintos al mismo MinIO y
+pueden fallar por separado.
 
 Que los contenedores esten `Up` no demuestra nada: Nessie estuvo `Up` con el
 catalogo roto, devolviendo 200 en `/api/v2/config`.
@@ -95,8 +102,10 @@ encuentra un compose o un `Dockerfile` **en la raiz**
 | Nessie | 19120 | Catalogo Iceberg + REST |
 | Spark | 15002 | Spark Connect |
 
-Credenciales por defecto en `infra/.env.example`. Son de desarrollo local: el
-lakehouse no sale de la maquina.
+Credenciales y demas configuracion en `.env.example`, en la raiz. Se copia a
+`.env` una vez (`cp .env.example .env`) y de ahi comen tanto Compose como los
+servicios de Python. Son valores de desarrollo local: el lakehouse no sale de
+la maquina, pero el codigo ya no los trae dentro.
 
 ## Estado
 

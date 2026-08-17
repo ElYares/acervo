@@ -98,7 +98,11 @@ services:
     command:
       - /opt/spark/sbin/start-connect-server.sh
       - --packages
-      - org.apache.spark:spark-connect_2.12:3.5.6,org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.9.1,org.apache.iceberg:iceberg-aws-bundle:1.9.1,org.projectnessie.nessie-integrations:nessie-spark-extensions-3.5_2.12:0.104.3
+      # hadoop-aws 3.3.4 y no otra: la imagen trae hadoop-client 3.3.4 y S3A
+      # tiene que coincidir con el Hadoop que ya esta dentro. Arrastra el
+      # aws-java-sdk-bundle v1 que S3A necesita, que no es el SDK v2 que trae
+      # iceberg-aws-bundle: cada camino a MinIO usa el suyo.
+      - org.apache.spark:spark-connect_2.12:3.5.6,org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.9.1,org.apache.iceberg:iceberg-aws-bundle:1.9.1,org.apache.hadoop:hadoop-aws:3.3.4,org.projectnessie.nessie-integrations:nessie-spark-extensions-3.5_2.12:0.104.3
       - --conf
       - spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions,org.projectnessie.spark.extensions.NessieSparkSessionExtensions
       - --conf
@@ -119,6 +123,24 @@ services:
       - spark.sql.catalog.acervo.s3.path-style-access=true
       - --conf
       - spark.sql.defaultCatalog=acervo
+      # Segundo camino al mismo MinIO. Lo de arriba configura el catalogo, que
+      # usa S3FileIO de Iceberg; leer una ruta suelta con s3a:// no pasa por
+      # ahi, sino por el FileSystem de Hadoop, que se configura aparte. Sin
+      # este bloque, `spark.read.parquet("s3a://raw/...")` no encuentra las
+      # credenciales aunque el catalogo funcione perfecto.
+      - --conf
+      - spark.hadoop.fs.s3a.endpoint=http://minio:9000
+      - --conf
+      - spark.hadoop.fs.s3a.access.key=${MINIO_ROOT_USER:-acervo}
+      - --conf
+      - spark.hadoop.fs.s3a.secret.key=${MINIO_ROOT_PASSWORD:-acervo123}
+      - --conf
+      - spark.hadoop.fs.s3a.path.style.access=true
+      # Explicito en vez de la cadena por defecto: sin esto S3A prueba
+      # proveedores en orden y termina intentando credenciales de instancia
+      # IAM, que aqui no existen y solo sirven para confundir el fallo.
+      - --conf
+      - spark.hadoop.fs.s3a.aws.credentials.provider=org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
     ports:
       - "15002:15002"
       - "4040:4040"

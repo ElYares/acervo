@@ -1,0 +1,45 @@
+[project]
+name = "acervo-transform"
+version = "0.1.0"
+description = "Materializa las capas silver y gold del lakehouse con Spark"
+readme = "README.md"
+# 3.11 exacto, no un rango: el cliente de Connect de pyspark 3.5.6 importa
+# `distutils`, que Python 3.12 elimino de la stdlib. Con 3.12 instala bien y
+# muere al abrir la sesion, con `ModuleNotFoundError: No module named
+# 'distutils'`. El sistema trae 3.14, asi que uv se descarga la 3.11 (ver
+# .python-version). Los scripts de infra ya usaban python:3.11-slim por esto.
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    # Clavada, no acotada: el cliente de Connect tiene que ser la version exacta
+    # del servidor. Ver infra/README.md.
+    "pyspark[connect]==3.5.6",
+    "python-dotenv>=1.0",
+    "typer>=0.15",
+]
+
+[project.scripts]
+silver = "acervo_transform.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.9",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "integracion: requiere el stack levantado y el mes en raw/",
+]

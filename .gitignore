@@ -1,6 +1,6 @@
-# Secretos y entorno local
+# Secretos y entorno local. Un solo .env en la raiz para todo el proyecto:
+# lo leen Compose y los servicios de Python. La plantilla si se versiona.
 .env
-infra/.env
 
 # Python
 .venv/

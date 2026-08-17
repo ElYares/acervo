@@ -24,8 +24,8 @@ class ErrorAlmacenamiento(RuntimeError):
 
 
 class AlmacenRaw:
-    def __init__(self, cfg: S3Config, bucket: str):
-        self._bucket = bucket
+    def __init__(self, cfg: S3Config):
+        self._bucket = cfg.bucket_raw
         self._s3 = boto3.client(
             "s3",
             endpoint_url=cfg.endpoint,
@@ -87,6 +87,9 @@ class AlmacenRaw:
 
 
 def almacen_raw() -> AlmacenRaw:
-    from acervo_ingest.config import BUCKET_RAW
+    """El almacen configurado desde el entorno.
 
-    return AlmacenRaw(S3Config.desde_entorno(), BUCKET_RAW)
+    Lanza `ErrorConfiguracion` si falta una credencial, antes de abrir ninguna
+    conexion.
+    """
+    return AlmacenRaw(S3Config.desde_entorno())
