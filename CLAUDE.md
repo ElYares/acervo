@@ -22,7 +22,7 @@ un API propio. Proyecto personal, un solo desarrollador.
 ```text
 infra/        compose, pruebas del stack        <- implementado
 ingest/       descarga incremental a raw/       <- implementado (TLC)
-transform/    silver con Spark, gold con dbt    <- implementado (silver; gold solo el puente)
+transform/    silver con Spark, gold con dbt    <- implementado (TLC yellow)
 orchestrate/  Dagster                           <- vacio
 acervo-api/   Go, lectura sobre gold            <- vacio
 acervo-web/   Next.js                           <- vacio
@@ -48,7 +48,8 @@ cd ingest && uv run ingest tlc yellow --mes 2024-01
 cd transform && uv run pytest           # incluye pruebas contra Spark y Nessie
 cd transform && uv run ruff check .
 cd transform && uv run silver tlc yellow --mes 2024-01
-cd transform && uv run dbt debug        # el puente de dbt a Spark Connect
+cd transform && uv run dbt run          # materializa gold
+cd transform && uv run dbt test
 ```
 
 No hay CI ni task runner en la raiz. Correr las pruebas es manual y por
