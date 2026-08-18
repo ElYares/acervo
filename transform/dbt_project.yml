@@ -25,12 +25,30 @@ flags:
   # de datos no llama a casa sin decirlo.
   send_anonymous_usage_stats: false
 
+vars:
+  # Las siete banderas de calidad de silver, en el orden de
+  # `acervo_transform.calidad.BANDERAS`. **Es la unica copia de esa lista fuera
+  # de Python**, y `tests/test_gold_integracion.py` afirma que no se separan.
+  # Sin esa prueba, agregar una octava bandera a silver dejaria gold filtrando
+  # por las siete viejas sin que nadie se entere.
+  banderas_calidad:
+    - fuera_de_mes
+    - cronologia_invalida
+    - duracion_absurda
+    - sin_distancia
+    - velocidad_absurda
+    - importe_negativo
+    - pasajeros_cero
+
 models:
   acervo:
     +materialized: table
     # Iceberg y no parquet: el default de dbt-spark deja una tabla Hive que
     # Nessie no versiona y que no comparte formato con silver.
     +file_format: iceberg
+
+    gold:
+      +schema: gold
 
     puente:
       # El canario de HU-004 no vive en gold. Su namespace es desechable y las

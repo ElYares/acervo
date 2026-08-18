@@ -5,8 +5,8 @@ Materializa las capas modeladas del lakehouse: **silver de TLC con Spark** y
 herramientas. La frontera esta en la Decision 003 del vault: Spark materializa
 silver, dbt entra desde gold.
 
-De gold hoy existe **el puente, no los modelos**: HU-004 dejo probado que dbt
-escribe Iceberg contra este stack. El primer mart real es CU-003.
+De gold existe **el primer mart**: `viajes_por_zona_hora`, que es lo que
+`acervo-api` va a servir.
 
 ## Capas
 
@@ -18,8 +18,9 @@ fila de silver es una fila del origen, tipada y **marcada**. No agrega, no une y
 no descarta.
 
 **gold** — agregados listos para consumo, con dbt. Es lo unico que va a leer
-`acervo-api`: silver tiene un renglon por viaje y ningun proceso Go va a
-escanear millones de filas por peticion HTTP. Todavia sin modelos reales.
+`acervo-api`: silver tiene un renglon por viaje y ningun proceso Go va a escanear
+millones de filas por peticion HTTP. Un mes de yellow pasa de 2,964,624
+renglones a **5,128 filas y 82 KB**.
 
 ## Uso
 
@@ -41,12 +42,40 @@ tantas filas que el origen.
 Y gold, con dbt:
 
 ```bash
-uv run dbt debug                        # el puente responde
-uv run dbt run --select puente_dbt      # el canario de HU-004
+uv run dbt debug     # el puente responde
+uv run dbt run       # materializa los modelos
+uv run dbt test      # incluye la prueba de que el mart no salio vacio
 ```
+
+Escribe `acervo.gold.viajes_por_zona_hora`, particionada por mes.
 
 `profiles.yml` esta en este directorio y dbt lo encuentra solo: **no hace falta
 `DBT_PROFILES_DIR`**.
+
+## El mart de gold
+
+`viajes_por_zona_hora` responde una pregunta y esta hecho para servirla: por
+`mes`, zona de recogida y hora del dia, cuantos viajes, cuanto ingreso, cuanta
+distancia y cuanto duraron de media.
+
+- **Gold descarta lo que silver marco, y solo eso.** Aqui no hay reglas de
+  calidad nuevas. De 2,964,624 filas de `2024-01` quedan 2,840,426
+- **El grano incluye `mes`.** Sin el, el segundo mes que se materialice se
+  sumaria encima del primero y el mart mentiria sin avisar
+- **La hora es local y sin zona.** Las columnas de silver son `timestamp_ntz`:
+  "las 8" es la hora del reloj de Nueva York, no un instante absoluto
+- **`pu_location_id` es un id, no un nombre.** El lookup de zonas de TLC no se
+  ingiere todavia, asi que un mapa necesita ese paso antes
+- **Se reemplaza entera, y eso caduca.** Con un mes es lo mas simple; con varios
+  hay que pasar a `incremental` sobre la particion `mes`
+
+**La trampa que mas importa** esta en las banderas. dbt no puede importar
+Python, asi que la lista de las siete vive dos veces: en
+`acervo_transform.calidad.BANDERAS` y en los `vars` de `dbt_project.yml`. Si se
+separan **nada falla**: el mart sale, los conteos cambian y nadie lo mira. Por
+eso `test_las_banderas_de_dbt_son_las_de_silver` compara las dos listas. Si esa
+prueba falla despues de tocar `calidad.py`, la correccion no es editar la prueba:
+es actualizar el `vars`.
 
 ## Como habla dbt con Spark
 
@@ -191,19 +220,20 @@ del servidor. Ver `infra/README.md`.
 
 ## Estado
 
-CU-002 implementado para `yellow` y HU-004 cerrada: el puente de dbt esta
-probado. Las pruebas de integracion materializan el mes de verdad y tardan
+CU-002, HU-004 y CU-003 implementados para `yellow`: silver, el puente de dbt y
+el primer mart de gold. Las pruebas de integracion materializan el mes de verdad y tardan
 alrededor de un minuto.
 
-`models/puente/puente_dbt.sql` es un canario desechable: no modela nada, existe
-para que las pruebas puedan afirmar que el puente aguanta. Se borra cuando
-CU-003 traiga un modelo que alguien consulte.
+`models/puente/puente_dbt.sql` **se queda**, aunque HU-004 lo daba por
+desechable. Separa dos preguntas que conviene no mezclar: si el puente esta vivo
+y si el mart es correcto. Cuando falle `viajes_por_zona_hora`, el canario dice
+cual de las dos se rompio, y cuesta una tabla de una fila.
 
 ## Siguiente
 
-- CU-003: el primer mart de gold, viajes por zona y hora
+- El lookup de zonas de TLC, para que el mart exponga nombres y no ids
 - El contrato de `green`, `fhv` y `fhvhv`
-- Backfill de varios meses en una corrida
+- Backfill de varios meses, que exige pasar el mart a `incremental`
 
 ## Deuda conocida
 

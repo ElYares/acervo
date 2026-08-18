@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: silver
+    description: >
+      Las tablas que materializa Spark. La Decision 003 las declara **fuentes**
+      de dbt y no modelos suyos: dbt entra desde gold y no escribe silver.
+    tables:
+      - name: tlc_yellow
+        description: >
+          Un renglon por viaje de yellow, tipado y con las siete banderas de
+          calidad. Marca y no descarta: descartar es trabajo de gold.
