@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: viajes_por_zona_hora
+    description: >
+      Viajes de yellow agregados por mes, zona de recogida y hora del dia,
+      descartando lo que silver marco. Es la tabla que `acervo-api` va a servir:
+      un mes pasa de 2,964,624 renglones a 5,128.
+    columns:
+      - name: mes
+        description: Mes del archivo de origen, no derivado de la recogida.
+        data_tests: [not_null]
+      - name: pu_location_id
+        description: >
+          Zona de recogida de TLC. Es un id, no un nombre: el lookup de zonas
+          todavia no se ingiere.
+        data_tests: [not_null]
+      - name: hora
+        description: >
+          Hora local de la recogida, 0-23. Sin zona horaria: las columnas de
+          silver son `timestamp_ntz` y no son instantes absolutos.
+        data_tests: [not_null]
+      - name: viajes
+        description: Viajes limpios del grupo.
+        data_tests: [not_null]
+      - name: ingreso
+        description: >
+          Suma de `total_amount`. Decimal y no double: sumar millones de double
+          acumula error de coma flotante. Ver Decision 006.
+        data_tests: [not_null]
