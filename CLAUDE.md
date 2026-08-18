@@ -14,7 +14,8 @@ un API propio. Proyecto personal, un solo desarrollador.
 
 - MinIO (S3) + Nessie (catalogo Iceberg con ramas) + Spark 3.5.6 Connect
 - Python 3.13 con **uv** por servicio; dbt y Dagster pendientes
-- Go 1.26 para el API, Next.js para el dashboard: **todavia vacios**
+- Go 1.26 para el API (`iceberg-go`, sin motor de por medio); Next.js para el
+  dashboard: **todavia vacio**
 - Docker Compose gestionado por **devherd**
 
 ## Layout
@@ -24,7 +25,7 @@ infra/        compose, pruebas del stack        <- implementado
 ingest/       descarga incremental a raw/       <- implementado (TLC)
 transform/    silver con Spark, gold con dbt    <- implementado (TLC yellow)
 orchestrate/  Dagster                           <- vacio
-acervo-api/   Go, lectura sobre gold            <- vacio
+acervo-api/   Go, lectura sobre gold            <- implementado (viajes_por_zona_hora)
 acervo-web/   Next.js                           <- vacio
 ```
 
@@ -50,6 +51,10 @@ cd transform && uv run ruff check .
 cd transform && uv run silver tlc yellow --mes 2024-01
 cd transform && uv run dbt run          # materializa gold
 cd transform && uv run dbt test
+
+cd acervo-api && go test ./...          # incluye pruebas contra Nessie y MinIO
+cd acervo-api && go test -short ./...   # solo unitarias
+cd acervo-api && go run ./cmd/acervo-api
 ```
 
 No hay CI ni task runner en la raiz. Correr las pruebas es manual y por
