@@ -45,6 +45,7 @@ devherd down
 cd ingest && uv run pytest              # incluye pruebas contra MinIO real
 cd ingest && uv run ruff check .
 cd ingest && uv run ingest tlc yellow --mes 2024-01
+cd ingest && uv run ingest tlc-zonas     # catalogo de zonas, no es mensual
 
 cd transform && uv run pytest           # incluye pruebas contra Spark y Nessie
 cd transform && uv run ruff check .
