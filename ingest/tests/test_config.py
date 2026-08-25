@@ -8,10 +8,15 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from acervo_ingest import config, tlc
+from acervo_ingest import config, descarga
 from acervo_ingest.cli import app
 
-OBLIGATORIAS = ("MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD", "ACERVO_TLC_BASE_URL")
+OBLIGATORIAS = (
+    "MINIO_ROOT_USER",
+    "MINIO_ROOT_PASSWORD",
+    "ACERVO_TLC_BASE_URL",
+    "ACERVO_TLC_ZONAS_URL",
+)
 OPCIONALES = (
     "ACERVO_S3_ENDPOINT",
     "ACERVO_S3_REGION",
@@ -38,6 +43,7 @@ def entorno_limpio(monkeypatch):
         ("MINIO_ROOT_USER", config.S3Config.desde_entorno),
         ("MINIO_ROOT_PASSWORD", config.S3Config.desde_entorno),
         ("ACERVO_TLC_BASE_URL", config.OrigenTLC.desde_entorno),
+        ("ACERVO_TLC_ZONAS_URL", config.OrigenZonasTLC.desde_entorno),
     ],
 )
 def test_falta_una_obligatoria_y_el_error_la_nombra(
@@ -101,8 +107,32 @@ def test_sin_configuracion_la_cli_sale_con_3_y_no_toca_la_red(entorno_limpio, mo
         raise AssertionError("se abrio un cliente HTTP sin configuracion resuelta")
 
     monkeypatch.setattr(httpx, "Client", no_deberia_abrirse)
-    monkeypatch.setattr(tlc.httpx, "Client", no_deberia_abrirse)
+    monkeypatch.setattr(descarga.httpx, "Client", no_deberia_abrirse)
 
     resultado = CliRunner().invoke(app, ["tlc", "yellow", "--mes", "2024-01"])
 
     assert resultado.exit_code == 3, resultado.output
+
+
+def test_sin_la_url_del_catalogo_tlc_zonas_sale_con_3(entorno_limpio, monkeypatch):
+    def no_deberia_abrirse(*_args, **_kwargs):
+        raise AssertionError("se abrio un cliente HTTP sin configuracion resuelta")
+
+    monkeypatch.setattr(httpx, "Client", no_deberia_abrirse)
+    monkeypatch.setattr(descarga.httpx, "Client", no_deberia_abrirse)
+
+    resultado = CliRunner().invoke(app, ["tlc-zonas"])
+
+    assert resultado.exit_code == 3, resultado.output
+
+
+def test_falta_la_url_del_catalogo_y_no_rompe_la_ingesta_de_viajes(entorno_limpio, monkeypatch):
+    """El acoplamiento que la variable separada existe para evitar."""
+    for nombre in OBLIGATORIAS:
+        if nombre != "ACERVO_TLC_ZONAS_URL":
+            monkeypatch.setenv(nombre, "http://origen/datos")
+
+    config.OrigenTLC.desde_entorno()  # no debe lanzar
+
+    with pytest.raises(config.ErrorConfiguracion, match="ACERVO_TLC_ZONAS_URL"):
+        config.OrigenZonasTLC.desde_entorno()
