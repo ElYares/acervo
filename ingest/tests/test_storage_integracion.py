@@ -68,3 +68,27 @@ def test_subida_truncada_no_deja_parcial_huerfano(almacen, key):
 
 def test_objeto_inexistente_no_tiene_marca_de_agua(almacen):
     assert almacen.etag_registrado(f"_pruebas/{uuid.uuid4()}.noexiste") is None
+
+
+def test_minio_caido_se_reporta_como_destino_y_no_como_traceback():
+    """E3: distinguir "no pude leer el origen" de "no pude escribir el destino".
+
+    `ClientError` es solo lo que S3 **contesta**. Que MinIO no conteste es
+    `BotoCoreError`, y sin cubrirlo el CLI moria con un traceback de urllib3 en
+    vez del mensaje que dice de que lado esta el problema.
+    """
+    from acervo_ingest.config import S3Config
+    from acervo_ingest.storage import AlmacenRaw
+
+    caido = AlmacenRaw(
+        S3Config(
+            endpoint="http://localhost:9",  # puerto reservado: nada escucha ahi
+            access_key="u",
+            secret_key="p",
+            region="us-east-1",
+            bucket_raw="raw",
+        )
+    )
+
+    with pytest.raises(ErrorAlmacenamiento, match="no pude consultar"):
+        caido.etag_registrado("tlc/loquesea.csv")
