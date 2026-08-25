@@ -9,7 +9,7 @@ from typing import IO
 
 import boto3
 from botocore.client import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 from acervo_ingest.config import S3Config
 
@@ -44,6 +44,12 @@ class AlmacenRaw:
             if codigo == 404:
                 return None
             raise ErrorAlmacenamiento(f"no pude consultar {key}: {err}") from err
+        except BotoCoreError as err:
+            # `ClientError` es solo lo que S3 contesta. Que MinIO no conteste
+            # —endpoint caido, DNS, timeout— es `BotoCoreError`, y sin este
+            # brazo se escapa como traceback en vez del mensaje que distingue
+            # el destino del origen.
+            raise ErrorAlmacenamiento(f"no pude consultar {key}: {err}") from err
         return resp.get("Metadata", {}).get(META_ETAG_ORIGEN)
 
     def subir(self, key: str, cuerpo: IO[bytes], etag_origen: str, tamano_esperado: int) -> None:
@@ -61,7 +67,7 @@ class AlmacenRaw:
                 key_temp,
                 ExtraArgs={"Metadata": {META_ETAG_ORIGEN: etag_origen}},
             )
-        except ClientError as err:
+        except (ClientError, BotoCoreError) as err:
             self._borrar_silencioso(key_temp)
             raise ErrorAlmacenamiento(f"no pude escribir {key_temp}: {err}") from err
 
@@ -82,7 +88,7 @@ class AlmacenRaw:
             self._borrar_silencioso(key_temp)
 
     def _borrar_silencioso(self, key: str) -> None:
-        with suppress(ClientError):
+        with suppress(ClientError, BotoCoreError):
             self._s3.delete_object(Bucket=self._bucket, Key=key)
 
 

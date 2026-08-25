@@ -104,3 +104,27 @@ class OrigenTLC:
             base_url=_obligatoria("ACERVO_TLC_BASE_URL").rstrip("/"),
             timeout=_numero("ACERVO_HTTP_TIMEOUT", 30.0),
         )
+
+
+@dataclass(frozen=True)
+class OrigenZonasTLC:
+    """De donde se baja el catalogo de zonas de TLC.
+
+    Variable propia y **no derivada** de `OrigenTLC.base_url`: el catalogo vive
+    en `/misc/`, hermana de `/trip-data/`, no debajo. Recortar una para
+    construir la otra seria armar una URL de origen dentro de `src/`, que es
+    justo lo que este modulo existe para impedir.
+
+    Separada tambien por acoplamiento: que falte la URL del catalogo no tiene
+    por que romper la ingesta de viajes, ni al reves.
+    """
+
+    url: str
+    timeout: float
+
+    @classmethod
+    def desde_entorno(cls) -> "OrigenZonasTLC":
+        return cls(
+            url=_obligatoria("ACERVO_TLC_ZONAS_URL"),
+            timeout=_numero("ACERVO_HTTP_TIMEOUT", 30.0),
+        )
